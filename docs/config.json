@@ -1,0 +1,126 @@
+{
+    "project": {
+      "name": "TalkApp2025",
+      "description": "A lightweight Android-only chat application built with Expo, using Firebase for text messages and Supabase for media storage.",
+      "language": "Arabic",
+      "theme": "dark",
+      "platform": "android",
+      "build": "expo-only"
+    },
+    "features": {
+      "auth": {
+        "provider": "google",
+        "library": "expo-auth-session"
+      },
+      "chats": {
+        "messages": "firebase",
+        "status": ["sent", "delivered", "seen"],
+        "typingIndicator": true,
+        "deleteAfterDelivery": true,
+        "lockUndelivered": true
+      },
+      "media": {
+        "storage": "supabase",
+        "bucket": "chat-files",
+        "types": ["image", "video", "audio", "voice"],
+        "keepQuality": true,
+        "deleteAfterReceive": true
+      },
+      "presence": {
+        "onlineStatus": true,
+        "lastSeen": true,
+        "typing": true
+      },
+      "notifications": {
+        "inApp": true,
+        "push": "optional"
+      }
+    },
+    "screens": [
+      {
+        "name": "LoginScreen",
+        "features": ["Google Sign-In"]
+      },
+      {
+        "name": "ChatListScreen",
+        "features": [
+          "Show all conversations",
+          "Search bar at top",
+          "Floating button for new chat",
+          "Show profile picture, name, last message, status"
+        ]
+      },
+      {
+        "name": "ChatScreen",
+        "features": [
+          "Send/receive text",
+          "Send/receive media",
+          "Typing indicator",
+          "Message status tracking"
+        ]
+      },
+      {
+        "name": "NotificationsScreen",
+        "features": ["Show latest notifications"]
+      },
+      {
+        "name": "ProfileScreen",
+        "features": ["Show Google profile (name, picture, email)"]
+      }
+    ],
+    "firebase": {
+      "apiKey": "AIzaSyDA2vaD1VLrSfoFLaeN2-L6hpdDu5jDv-w",
+      "authDomain": "talkapp2025.firebaseapp.com",
+      "projectId": "talkapp2025",
+      "storageBucket": "talkapp2025.firebasestorage.app",
+      "messagingSenderId": "369761423989",
+      "appId": "1:369761423989:web:060d6d026b0410cdae1e3c"
+    },
+    "supabase": {
+      "url": "https://ggatxamblcoexalkjkvny.supabase.co",
+      "anonKey": "sb_publishable_FuunclexmSbFLk-73xGRuQ_ZPCM6bCD",
+      "secretKey": "sb_secret_bDqoZZsXmzlxpGl2o0ro2Q_W5eO20bx",
+      "bucket": "chat-files"
+    },
+    "dataStructure": {
+      "firestore": {
+        "users": {
+          "id": "google_uid",
+          "name": "string",
+          "email": "string",
+          "photoUrl": "string",
+          "online": "boolean",
+          "lastSeen": "timestamp",
+          "typing": "boolean"
+        },
+        "chats": {
+          "chatId/messages/messageId": {
+            "senderId": "string",
+            "receiverId": "string",
+            "text": "string|null",
+            "mediaUrl": "string|null",
+            "type": "text|image|audio|video",
+            "status": "sent|delivered|seen",
+            "timestamp": "timestamp"
+          }
+        }
+      },
+      "supabase": {
+        "storage": {
+          "images": "/images/{filename}",
+          "audio": "/audio/{filename}",
+          "videos": "/videos/{filename}"
+        }
+      }
+    },
+    "libraries": {
+      "core": ["expo", "react-native"],
+      "auth": ["expo-auth-session"],
+      "firebase": ["firebase"],
+      "supabase": ["@supabase/supabase-js"],
+      "ui": ["nativewind", "react-native-paper"],
+      "media": ["expo-image-picker", "expo-av", "expo-file-system"],
+      "icons": ["@expo/vector-icons"]
+    }
+  }
+  

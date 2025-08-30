@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "TalkApp",
+    "slug": "talkapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1f2937"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1f2937"
+      },
+      "package": "com.talkapp.messaging"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "talkapp",
+    "plugins": [
+      "expo-image-picker",
+      "expo-av",
+      "expo-file-system",
+      "expo-media-library",
+      "expo-notifications"
+    ]
+  }
+}
