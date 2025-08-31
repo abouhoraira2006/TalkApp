@@ -65,6 +65,56 @@ export const InstagramChatScreen = ({ route, navigation }: InstagramChatScreenPr
 
   const reactions = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
+  // Generate avatar colors based on name hash
+  const getAvatarColors = (name: string) => {
+    const colors = [
+      ['#667eea', '#764ba2'], // Purple-Blue
+      ['#f093fb', '#f5576c'], // Pink-Red
+      ['#4facfe', '#00f2fe'], // Blue-Cyan
+      ['#43e97b', '#38f9d7'], // Green-Teal
+      ['#fa709a', '#fee140'], // Pink-Yellow
+      ['#a8edea', '#fed6e3'], // Mint-Pink
+      ['#ff9a9e', '#fecfef'], // Coral-Pink
+      ['#667eea', '#764ba2'], // Purple-Blue
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Generate avatar initials
+  const getAvatarInitials = (name: string) => {
+    if (!name || name.trim() === '') return 'م';
+    
+    const words = name.trim().split(' ');
+    if (words.length === 1) {
+      return words[0].charAt(0).toUpperCase();
+    } else {
+      return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+    }
+  };
+
+  // Format message time
+  const formatMessageTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) {
+      return 'الآن';
+    } else if (diffInMinutes < 60) {
+      return `منذ ${diffInMinutes} د`;
+    } else if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('ar', { month: 'short', day: 'numeric' });
+    }
+  };
+
   // Load messages and typing status
   useEffect(() => {
     if (!user || !chatId) return;
@@ -452,34 +502,53 @@ export const InstagramChatScreen = ({ route, navigation }: InstagramChatScreenPr
           </View>
         )}
 
-        <PanGestureHandler
-          onGestureEvent={onGestureEvent}
-          onHandlerStateChange={(event) => onHandlerStateChange(event, item)}
-        >
-          <Animated.View style={{
-            transform: [{ translateX: messageTranslateX }]
-          }}>
-            {showAvatar && (
-              <Image
-                source={{ uri: otherUser?.photoUrl || 'https://via.placeholder.com/32' }}
-                style={styles.messageAvatar}
-              />
-            )}
-            
-            <TouchableOpacity
-              onLongPress={() => handleMessageLongPress(item)}
-              onPress={() => handleMessageTap(item)}
-              style={[
-                styles.messageBubble,
-                isMyMessage ? styles.myMessage : styles.otherMessage,
-                !showAvatar && !isMyMessage && styles.messageWithoutAvatar,
-              ]}
-            >
+        <View style={[
+          styles.messageContainer,
+          isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer
+        ]}>
+          <PanGestureHandler
+            onGestureEvent={onGestureEvent}
+            onHandlerStateChange={(event) => onHandlerStateChange(event, item)}
+          >
+            <Animated.View style={{
+              transform: [{ translateX: messageTranslateX }],
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+            }}>
+              {showAvatar && !isMyMessage && (
+                <View style={styles.avatarContainer}>
+                  {otherUser?.photoUrl && otherUser.photoUrl.trim() !== '' ? (
+                    <Image
+                      source={{ uri: otherUser.photoUrl }}
+                      style={styles.messageAvatar}
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={getAvatarColors(otherUser?.name || 'مستخدم')}
+                      style={styles.messageAvatar}
+                    >
+                      <Text style={styles.avatarText}>
+                        {getAvatarInitials(otherUser?.name || 'مستخدم')}
+                      </Text>
+                    </LinearGradient>
+                  )}
+                </View>
+              )}
+              
+              <TouchableOpacity
+                onLongPress={() => handleMessageLongPress(item)}
+                onPress={() => handleMessageTap(item)}
+                style={[
+                  styles.messageBubble,
+                  isMyMessage ? styles.myMessage : styles.otherMessage,
+                  !showAvatar && !isMyMessage && styles.messageWithoutAvatar,
+                ]}
+              >
               {item.replyTo && (
                 <View style={styles.replyContainer}>
                   <View style={styles.replyLine} />
                   <View style={styles.replyContent}>
-                    <Text style={styles.replyText}>{item.replyTo.text}</Text>
+                    <Text style={styles.replyText} numberOfLines={2}>{item.replyTo.text}</Text>
                   </View>
                 </View>
               )}
@@ -494,12 +563,12 @@ export const InstagramChatScreen = ({ route, navigation }: InstagramChatScreenPr
                 <Image source={{ uri: item.imageUrl }} style={styles.messageImage} />
               )}
 
+              <Text style={[styles.messageTime, isMyMessage ? styles.myMessageTime : styles.otherMessageTime]}>
+                {formatMessageTime(item.timestamp)}
+              </Text>
+
               {isMyMessage && (
-                <View style={styles.messageFooter}>
-                  <Text style={styles.messageTime}>
-                    {new Date(item.timestamp).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                  <View style={styles.messageStatus}>
+                <View style={styles.messageStatus}>
                     {item.status === 'sending' && (
                       <Ionicons name="time-outline" size={14} color="#94a3b8" />
                     )}
@@ -513,12 +582,11 @@ export const InstagramChatScreen = ({ route, navigation }: InstagramChatScreenPr
                       <Ionicons name="checkmark-done" size={14} color="#0ea5e9" />
                     )}
                   </View>
-                </View>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </PanGestureHandler>
-
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </PanGestureHandler>
+        </View>
       </View>
     );
   };
@@ -642,10 +710,23 @@ export const InstagramChatScreen = ({ route, navigation }: InstagramChatScreenPr
           </TouchableOpacity>
           
           <View style={styles.userInfo}>
-            <Image
-              source={{ uri: otherUser?.photoUrl || 'https://via.placeholder.com/40' }}
-              style={styles.headerAvatar}
-            />
+            <View style={styles.headerAvatarContainer}>
+              {otherUser?.photoUrl && otherUser.photoUrl.trim() !== '' ? (
+                <Image
+                  source={{ uri: otherUser.photoUrl }}
+                  style={styles.headerAvatar}
+                />
+              ) : (
+                <LinearGradient
+                  colors={getAvatarColors(otherUser?.name || 'مستخدم')}
+                  style={styles.headerAvatar}
+                >
+                  <Text style={styles.headerAvatarText}>
+                    {getAvatarInitials(otherUser?.name || 'مستخدم')}
+                  </Text>
+                </LinearGradient>
+              )}
+            </View>
             
             <View style={styles.userDetails}>
               <Text style={styles.userName}>{otherUser.name}</Text>
@@ -896,7 +977,7 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
   },
   messageAvatar: {
     width: 28,
@@ -907,7 +988,7 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     marginVertical: 2,
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
   },
   myMessageContainer: {
     alignItems: 'flex-end',
@@ -941,8 +1022,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
-    marginRight: 20,
-    marginLeft: 8,
+    marginRight: 100,
+    marginLeft: 12,
   },
   messageWithoutAvatar: {
     marginLeft: 40,
@@ -971,10 +1052,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
     borderLeftWidth: 3,
     borderLeftColor: '#22c55e',
-    paddingLeft: 8,
-    paddingVertical: 6,
+    paddingLeft: 10,
+    paddingVertical: 8,
     marginBottom: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     marginHorizontal: 0,
   },
   replyLine: {
@@ -991,10 +1072,11 @@ const styles = StyleSheet.create({
   },
   replyText: {
     color: '#86efac',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '400',
     opacity: 0.9,
     fontStyle: 'italic',
+    lineHeight: 16,
   },
   messageImage: {
     width: 200,
@@ -1005,6 +1087,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 22,
+    color: '#ffffff',
     textAlign: 'left',
     writingDirection: 'ltr',
   },
@@ -1245,6 +1328,36 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 14,
   },
+  avatarContainer: {
+    marginRight: 2,
+    marginBottom: 4,
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  headerAvatarContainer: {
+    marginRight: 12,
+  },
+  headerAvatarText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  messageTime: {
+    fontSize: 11,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  myMessageTime: {
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  otherMessageTime: {
+    color: '#94a3b8',
+  },
   closeButton: {
     padding: 8,
   },
@@ -1333,6 +1446,17 @@ const styles = StyleSheet.create({
   messagesContent: {
     paddingVertical: 16,
     flexGrow: 1,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginVertical: 2,
+  },
+  myMessageRow: {
+    justifyContent: 'flex-end',
+  },
+  otherMessageRow: {
+    justifyContent: 'flex-start',
   },
 });
 
