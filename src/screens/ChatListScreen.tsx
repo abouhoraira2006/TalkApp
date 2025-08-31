@@ -7,14 +7,17 @@ import {
   Image,
   TextInput,
   StyleSheet,
+  Alert,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Chat, User } from '../types';
 import { useEmailAuth } from '../services/auth';
 import { db } from '../config/firebase';
 
 const ChatListScreen = ({ navigation }: any) => {
-  const { user } = useEmailAuth();
+  const { user, loading: authLoading } = useEmailAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +35,12 @@ const ChatListScreen = ({ navigation }: any) => {
         
         for (const doc of snapshot.docs) {
           const chatData = doc.data();
+          
+          // Skip if chat is deleted for this user
+          if (chatData.deletedFor && chatData.deletedFor[user.id]) {
+            continue;
+          }
+          
           const otherParticipantId = chatData.participants.find((id: string) => id !== user.id);
           
           if (otherParticipantId) {
@@ -72,8 +81,20 @@ const ChatListScreen = ({ navigation }: any) => {
     }
   }, [chats, searchQuery]);
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return '';
+    
+    let date: Date;
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      date = timestamp.toDate();
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else {
+      return '';
+    }
+    
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -90,10 +111,40 @@ const ChatListScreen = ({ navigation }: any) => {
   };
 
   const openChat = (chat: Chat) => {
-    navigation.navigate('Chat', {
+    navigation.navigate('InstagramChat', {
       chatId: chat.id,
       otherUser: chat.participantDetails[0],
     });
+  };
+
+  const deleteFromHistory = async (chatId: string) => {
+    if (!user) return;
+    
+    Alert.alert(
+      'حذف من التاريخ',
+      'هل تريد حذف هذه المحادثة من تاريخك؟ (لن يتم حذف الرسائل من الطرف الآخر)',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'حذف',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Add user to deletedFor array to hide chat from their view
+              await db.collection('chats').doc(chatId).update({
+                [`deletedFor.${user.id}`]: true
+              });
+              
+              // Remove from local state immediately
+              setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+            } catch (error) {
+              console.error('Error deleting chat from history:', error);
+              Alert.alert('خطأ', 'حدث خطأ أثناء حذف المحادثة');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const startNewChat = () => {
@@ -104,41 +155,69 @@ const ChatListScreen = ({ navigation }: any) => {
     const otherUser = item.participantDetails[0];
     
     return (
-      <TouchableOpacity style={styles.chatItem} onPress={() => openChat(item)}>
-        <Image
-          source={{ uri: otherUser?.photoUrl || 'https://via.placeholder.com/50' }}
-          style={styles.avatar}
-        />
-        <View style={styles.chatInfo}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.userName}>{otherUser?.name || 'مستخدم'}</Text>
-            <Text style={styles.timestamp}>
-              {item.lastMessageTime ? formatTime(item.lastMessageTime) : ''}
-            </Text>
+      <View style={styles.chatItemContainer}>
+        <TouchableOpacity 
+          style={styles.chatItem} 
+          onPress={() => openChat(item)}
+          onLongPress={() => deleteFromHistory(item.id)}
+        >
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{ uri: otherUser?.photoUrl || 'https://via.placeholder.com/50' }}
+              style={styles.avatar}
+            />
+            {otherUser?.online && <View style={styles.onlineIndicator} />}
           </View>
-          <View style={styles.messageRow}>
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.lastMessage?.text || 'لا توجد رسائل'}
-            </Text>
-            {item.unreadCount && item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{item.unreadCount}</Text>
-              </View>
-            )}
+          
+          <View style={styles.chatInfo}>
+            <View style={styles.chatHeader}>
+              <Text style={styles.userName}>{otherUser?.name || 'مستخدم'}</Text>
+              <Text style={styles.timestamp}>
+                {item.lastMessageTime ? formatTime(item.lastMessageTime) : ' '}
+              </Text>
+            </View>
+            <View style={styles.messageRow}>
+              <Text style={styles.lastMessage} numberOfLines={1}>
+                {typeof item.lastMessage === 'string' ? item.lastMessage : `آخر محادثة: ${item.lastMessageTime ? formatTime(item.lastMessageTime) : 'لا توجد رسائل'}`}
+              </Text>
+              {item.unreadCount && item.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-        <View style={styles.statusContainer}>
-          {otherUser?.online ? (
-            <View style={styles.onlineIndicator} />
-          ) : (
-            <Text style={styles.lastSeen}>
-              آخر ظهور {formatTime(otherUser?.lastSeen || 0)}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.deleteButton}
+          onPress={() => deleteFromHistory(item.id)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
     );
   };
+
+  // Show loading state
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={styles.loadingText}>جاري التحميل...</Text>
+      </View>
+    );
+  }
+  
+  // Show login required state
+  if (!user) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[styles.loadingText, { color: '#ef4444' }]}>
+          يجب تسجيل الدخول أولاً
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -172,7 +251,14 @@ const ChatListScreen = ({ navigation }: any) => {
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={startNewChat}>
-        <Ionicons name="add" size={24} color="white" />
+        <LinearGradient
+          colors={['#0ea5e9', '#06b6d4']}
+          style={styles.fabGradient}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -204,18 +290,42 @@ const styles = StyleSheet.create({
   chatList: {
     flex: 1,
   },
-  chatItem: {
+  chatItemContainer: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#374151',
+  },
+  chatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 16,
     alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 12,
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 12,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10b981',
+    borderWidth: 2,
+    borderColor: '#1f2937',
+  },
+  deleteButton: {
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chatInfo: {
     flex: 1,
@@ -259,18 +369,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  statusContainer: {
-    alignItems: 'flex-end',
-  },
-  onlineIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#10b981',
-  },
   lastSeen: {
     color: '#6b7280',
     fontSize: 10,
+    marginTop: 2,
   },
   emptyContainer: {
     flex: 1,
@@ -291,6 +393,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 32,
   },
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 16,
+    textAlign: 'center',
+  },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -298,14 +405,18 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0ea5e9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

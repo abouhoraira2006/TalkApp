@@ -8,61 +8,60 @@ export const useEmailAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('Setting up auth state listener...');
+    let isMounted = true;
     
-    const initializeAuthListener = async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      if (!isMounted) return;
       
-      const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
-        console.log('Auth state changed:', firebaseUser ? `User logged in: ${firebaseUser.email}` : 'User logged out');
-        
+      try {
         if (firebaseUser) {
-          try {
-            const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
-            if (userDoc.exists) {
-              const userData = userDoc.data() as User;
-              console.log('User data loaded from Firestore:', userData.email);
+          const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
+          if (!isMounted) return;
+          
+          if (userDoc.exists) {
+            const userData = userDoc.data() as User;
+            if (isMounted) {
               setUser(userData);
-            } else {
-              const userData: User = {
-                id: firebaseUser.uid,
-                email: firebaseUser.email || '',
-                name: firebaseUser.displayName || 'مستخدم',
-                username: firebaseUser.email?.split('@')[0] || 'user',
-                photoUrl: firebaseUser.photoURL || '',
-                online: true,
-                lastSeen: Date.now(),
-                typing: false,
-              };
-              await db.collection('users').doc(firebaseUser.uid).set(userData);
-              console.log('New user document created:', userData.email);
-              setUser(userData);
+              setLoading(false);
             }
-          } catch (error) {
-            console.error('Error getting user data:', error);
-            setUser(null);
+          } else {
+            const userData: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || 'مستخدم',
+              username: firebaseUser.email?.split('@')[0] || 'user',
+              photoUrl: firebaseUser.photoURL || '',
+              online: true,
+              lastSeen: Date.now(),
+              typing: false,
+            };
+            await db.collection('users').doc(firebaseUser.uid).set(userData);
+            if (isMounted) {
+              setUser(userData);
+              setLoading(false);
+            }
           }
         } else {
-          console.log('No user found, setting user to null');
-          setUser(null);
+          // User signed out
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
         }
-        setLoading(false);
-      });
-
-      return unsubscribe;
-    };
-
-    let unsubscribe: any;
-    initializeAuthListener().then(unsub => {
-      unsubscribe = unsub;
+      } catch (error) {
+        console.error('Error getting user data:', error);
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
+      }
     });
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      isMounted = false;
+      unsubscribe();
     };
-  }, []);
+  }, [])
 
   const checkUsernameAvailability = async (username: string) => {
     try {

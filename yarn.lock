@@ -2398,17 +2398,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-community/hooks@npm:^100.1.0":
+  version: 100.1.0
+  resolution: "@react-native-community/hooks@npm:100.1.0"
+  peerDependencies:
+    react: ">=18.0.0"
+    react-native: ">=0.70"
+  checksum: 10c0/9e30b2a9cc3447feef9b75b3e9a86d90a052956d134779de47bf6718bdb94f957936d8619004d413ef986872c3ec0133ea7073107ae65e4e08a6bbfb89c9b2e2
+  languageName: node
+  linkType: hard
+
 "@react-native/assets-registry@npm:0.79.5":
   version: 0.79.5
   resolution: "@react-native/assets-registry@npm:0.79.5"
   checksum: 10c0/629d2062154ac9a95ab9832bbea8d63cb27911d6b1d5b267461cffd4760c6e02bb1a8b1e060127e961a37cf53d311f2efffeb4a485bfbf6fa832c90e2cf23ea2
-  languageName: node
-  linkType: hard
-
-"@react-native/assets-registry@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/assets-registry@npm:0.79.6"
-  checksum: 10c0/2edab4c2ba6c58f7e79ccb1b8d5588a302cfc38cdf62201ce51ae4b402fce9999ac1c882f72d1d4d9e1d7229ba721edcd24a2ef1800f50981dc3679d5befa1eb
   languageName: node
   linkType: hard
 
@@ -2530,27 +2533,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native/community-cli-plugin@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/community-cli-plugin@npm:0.79.6"
-  dependencies:
-    "@react-native/dev-middleware": "npm:0.79.6"
-    chalk: "npm:^4.0.0"
-    debug: "npm:^2.2.0"
-    invariant: "npm:^2.2.4"
-    metro: "npm:^0.82.0"
-    metro-config: "npm:^0.82.0"
-    metro-core: "npm:^0.82.0"
-    semver: "npm:^7.1.3"
-  peerDependencies:
-    "@react-native-community/cli": "*"
-  peerDependenciesMeta:
-    "@react-native-community/cli":
-      optional: true
-  checksum: 10c0/74939b6b53fc504dc4020613874fd63b1af34aef5d4c68e2477e77517929ea4164fcea1b0c6fe8dc976774247413afc1db7862dff8835001f1ca2a70835f5e54
-  languageName: node
-  linkType: hard
-
 "@react-native/debugger-frontend@npm:0.79.5":
   version: 0.79.5
   resolution: "@react-native/debugger-frontend@npm:0.79.5"
@@ -2610,13 +2592,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native/gradle-plugin@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/gradle-plugin@npm:0.79.6"
-  checksum: 10c0/67294f5cf139be91b3a691929178d5aeff0405bdd29d0c8a3282e502d6515279381caa13c055985fe58b379a1f95d09a3f22fbaf7a9b1711063421453ed6e9d8
-  languageName: node
-  linkType: hard
-
 "@react-native/js-polyfills@npm:0.79.5":
   version: 0.79.5
   resolution: "@react-native/js-polyfills@npm:0.79.5"
@@ -2624,24 +2599,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native/js-polyfills@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/js-polyfills@npm:0.79.6"
-  checksum: 10c0/a2f78dac9ed1cf4224c863c00b6ef941097928150404f12951e6d938f6ea52869cbed128e6847ee3d4a34437ae48cc340a259e5967ece0adeba7cb4c6c7a2489
-  languageName: node
-  linkType: hard
-
 "@react-native/normalize-colors@npm:0.79.5":
   version: 0.79.5
   resolution: "@react-native/normalize-colors@npm:0.79.5"
   checksum: 10c0/d5b97f3ff7c0f6117ab92ae888611f2f7d6aa7f090e44f72658a7103582cc7d47fbb56c9e61fb9c6b44186c97b0f165425c032cf8d217ebf8955fe9f7ac41dea
-  languageName: node
-  linkType: hard
-
-"@react-native/normalize-colors@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/normalize-colors@npm:0.79.6"
-  checksum: 10c0/2bc662b6846a92fe62bc54be34204ad90eeceb9747fdd6f439f3262a8b93a47c1a9f574368749c07636a9a746e2d5b842e9492f55bbfcbe164a1b7385f467ac1
   languageName: node
   linkType: hard
 
@@ -2659,23 +2620,6 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c0/7a5e35e523bd847f0df6430af97216bcc66149d138cb27d1c8ab9ecc8887e8f5d9f7821f972d980a75b4fa9f88f350a3715b54132fe24dc649dea4706c10d09b
-  languageName: node
-  linkType: hard
-
-"@react-native/virtualized-lists@npm:0.79.6":
-  version: 0.79.6
-  resolution: "@react-native/virtualized-lists@npm:0.79.6"
-  dependencies:
-    invariant: "npm:^2.2.4"
-    nullthrows: "npm:^1.1.1"
-  peerDependencies:
-    "@types/react": ^19.0.0
-    react: "*"
-    react-native: "*"
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  checksum: 10c0/9fdfcc1b5901c5b16c3e77178a7e6a63bc9c7278272a0f534c0a500aaeda31338540ff2ef45c38b20f04b306d1bf7179ffe455c5fdf0e94890c5d102fe549c38
   languageName: node
   linkType: hard
 
@@ -4546,6 +4490,17 @@ __metadata:
     expo: "*"
     react: "*"
   checksum: 10c0/9d1993f7b17e6c36d707501ba9d983fe7e640317af7f2ecee17255f2c8c7bae39bdb3dfffcc67afcd36457bb60a6799dbaa2414922507ef01298cbe34e8eae8e
+  languageName: node
+  linkType: hard
+
+"expo-linear-gradient@npm:~14.1.5":
+  version: 14.1.5
+  resolution: "expo-linear-gradient@npm:14.1.5"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/14484683a36d8346ee2339530edb4927bbdb58833728ac34cdfe2df38541705cd9ef5f460c89dd28617af760b12197870bc411c48780f57bf1ba969bf54b13a0
   languageName: node
   linkType: hard
 
@@ -7030,7 +6985,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.7.2, prop-types@npm:^15.7.x":
+"prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.7.x":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -7190,9 +7145,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gifted-chat@npm:^2.4.0":
-  version: 2.4.0
-  resolution: "react-native-gifted-chat@npm:2.4.0"
+"react-native-gifted-chat@npm:2.0.1":
+  version: 2.0.1
+  resolution: "react-native-gifted-chat@npm:2.0.1"
   dependencies:
     "@expo/react-native-action-sheet": "npm:4.0.1"
     dayjs: "npm:1.8.26"
@@ -7202,16 +7157,22 @@ __metadata:
     react-native-lightbox-v2: "npm:0.9.0"
     react-native-parsed-text: "npm:0.0.22"
     react-native-typing-animation: "npm:0.1.7"
-    use-memo-one: "npm:1.1.3"
+    use-memo-one: "npm:1.1.2"
     uuid: "npm:3.4.0"
   peerDependencies:
+    "@expo/react-native-action-sheet": "*"
+    dayjs: "*"
     react: "*"
     react-native: "*"
-  checksum: 10c0/1605e20d24905b50baad97311780cc2d91c0d5a9a30bcd8be7363757824c402bc3d270750da05c3462679fcf942cfca76a0d25aebf9af0129ae3035448ca8607
+    react-native-communications: "*"
+    react-native-lightbox: "*"
+    react-native-parsed-text: "*"
+    react-native-typing-animation: "*"
+  checksum: 10c0/5fb969f0dceb67c93fae10dc62436e65ce2e41c8cead934a8e87d00053fa1a3f986d05c36bd60cb08d10f8046ea901389ec378cc1e2302f1d1200e1a7a9ed729
   languageName: node
   linkType: hard
 
-"react-native-iphone-x-helper@npm:1.3.1":
+"react-native-iphone-x-helper@npm:1.3.1, react-native-iphone-x-helper@npm:^1.0.3":
   version: 1.3.1
   resolution: "react-native-iphone-x-helper@npm:1.3.1"
   peerDependencies:
@@ -7230,13 +7191,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-is-edge-to-edge@npm:^1.1.6, react-native-is-edge-to-edge@npm:^1.1.7":
+"react-native-is-edge-to-edge@npm:^1.1.6, react-native-is-edge-to-edge@npm:^1.1.7, react-native-is-edge-to-edge@npm:^1.2.1":
   version: 1.2.1
   resolution: "react-native-is-edge-to-edge@npm:1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
   checksum: 10c0/87d20b900aded7d44c90afb946a7aa03c23a94ca3dd547bdddc2303b85357e4aab22567a57b19f1558d6c8be7058e3dcf34faa1e15182d1604f90974266d9a1d
+  languageName: node
+  linkType: hard
+
+"react-native-keyboard-aware-scroll-view@npm:^0.9.5":
+  version: 0.9.5
+  resolution: "react-native-keyboard-aware-scroll-view@npm:0.9.5"
+  dependencies:
+    prop-types: "npm:^15.6.2"
+    react-native-iphone-x-helper: "npm:^1.0.3"
+  peerDependencies:
+    react-native: ">=0.48.4"
+  checksum: 10c0/932c724f86ba355f1a1db938123eef67844550dd6e2d117222eff0012a47c6a293ad79c965e16930e5eb14adb58a5c340c00e03eeabbe3d78229236125b8a6aa
+  languageName: node
+  linkType: hard
+
+"react-native-keyboard-controller@npm:^1.18.5":
+  version: 1.18.5
+  resolution: "react-native-keyboard-controller@npm:1.18.5"
+  dependencies:
+    react-native-is-edge-to-edge: "npm:^1.2.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-reanimated: ">=3.0.0"
+  checksum: 10c0/708b8c299fdfc11749db4d84238330a2f04a07a92f40a5f0aa2870ffedb9e47c05455d50c3441a321f5cd5cacf7c936d5706e74cfb234a132e6c6c9ebb0d5e57
   languageName: node
   linkType: hard
 
@@ -7247,6 +7233,15 @@ __metadata:
     react: ">=16.8.0"
     react-native: ">=0.61.0"
   checksum: 10c0/86125911f78c8292f84851dcdcca06fc606afcc3d4e9a0dd84dee94edc665aa3d519ebb6c64014320d5855e4a77a83b129ac511059ed32e55f6082b11c46a69b
+  languageName: node
+  linkType: hard
+
+"react-native-lightbox@npm:^0.8.1":
+  version: 0.8.1
+  resolution: "react-native-lightbox@npm:0.8.1"
+  dependencies:
+    prop-types: "npm:^15.7.2"
+  checksum: 10c0/8c7661939c15749e812d65332a8fdfc972b9e7e67f726a5c8a34eeeb33d4d6e1667c9979ab05651c84569f54ffd90065d2cd182e9693637dc3e985669720b869
   languageName: node
   linkType: hard
 
@@ -7302,12 +7297,12 @@ __metadata:
   linkType: hard
 
 "react-native-safe-area-context@npm:^5.4.0":
-  version: 5.4.0
-  resolution: "react-native-safe-area-context@npm:5.4.0"
+  version: 5.6.1
+  resolution: "react-native-safe-area-context@npm:5.6.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10c0/729fef1f768d57b905f51882374aa93b209d54576b8a0cf328e0a349c8dc9705ae8f9032e572fd7a7c9e94b588105f44760c0bb15ab9911b7977073d6754b54d
+  checksum: 10c0/797ad7d749bd42cbec8e504d969de13e17ed48506c2fd5a639d05d78d88194c21d72b9dc4608e08a2e8edac23341802e7b4661875242dc3bdce3008cfda5bcbe
   languageName: node
   linkType: hard
 
@@ -7351,59 +7346,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native@npm:*":
-  version: 0.79.6
-  resolution: "react-native@npm:0.79.6"
-  dependencies:
-    "@jest/create-cache-key-function": "npm:^29.7.0"
-    "@react-native/assets-registry": "npm:0.79.6"
-    "@react-native/codegen": "npm:0.79.6"
-    "@react-native/community-cli-plugin": "npm:0.79.6"
-    "@react-native/gradle-plugin": "npm:0.79.6"
-    "@react-native/js-polyfills": "npm:0.79.6"
-    "@react-native/normalize-colors": "npm:0.79.6"
-    "@react-native/virtualized-lists": "npm:0.79.6"
-    abort-controller: "npm:^3.0.0"
-    anser: "npm:^1.4.9"
-    ansi-regex: "npm:^5.0.0"
-    babel-jest: "npm:^29.7.0"
-    babel-plugin-syntax-hermes-parser: "npm:0.25.1"
-    base64-js: "npm:^1.5.1"
-    chalk: "npm:^4.0.0"
-    commander: "npm:^12.0.0"
-    event-target-shim: "npm:^5.0.1"
-    flow-enums-runtime: "npm:^0.0.6"
-    glob: "npm:^7.1.1"
-    invariant: "npm:^2.2.4"
-    jest-environment-node: "npm:^29.7.0"
-    memoize-one: "npm:^5.0.0"
-    metro-runtime: "npm:^0.82.0"
-    metro-source-map: "npm:^0.82.0"
-    nullthrows: "npm:^1.1.1"
-    pretty-format: "npm:^29.7.0"
-    promise: "npm:^8.3.0"
-    react-devtools-core: "npm:^6.1.1"
-    react-refresh: "npm:^0.14.0"
-    regenerator-runtime: "npm:^0.13.2"
-    scheduler: "npm:0.25.0"
-    semver: "npm:^7.1.3"
-    stacktrace-parser: "npm:^0.1.10"
-    whatwg-fetch: "npm:^3.0.0"
-    ws: "npm:^6.2.3"
-    yargs: "npm:^17.6.2"
-  peerDependencies:
-    "@types/react": ^19.0.0
-    react: ^19.0.0
-  peerDependenciesMeta:
-    "@types/react":
-      optional: true
-  bin:
-    react-native: cli.js
-  checksum: 10c0/626fffcb4eb1161fa2b1e0a89cf1c1e7c7418dfd1c1f5ae1006d43716ca859ededee286b41887ea273198e782927bc4071e8555ab767ca0f010d0b4156cdeec9
-  languageName: node
-  linkType: hard
-
-"react-native@npm:0.79.5":
+"react-native@npm:*, react-native@npm:0.79.5":
   version: 0.79.5
   resolution: "react-native@npm:0.79.5"
   dependencies:
@@ -8200,6 +8143,7 @@ __metadata:
     "@babel/core": "npm:^7.25.2"
     "@expo/vector-icons": "npm:^14.1.0"
     "@react-native-async-storage/async-storage": "npm:2.1.2"
+    "@react-native-community/hooks": "npm:^100.1.0"
     "@react-navigation/bottom-tabs": "npm:^6.5.11"
     "@react-navigation/native": "npm:^6.1.9"
     "@react-navigation/stack": "npm:^6.3.20"
@@ -8216,6 +8160,7 @@ __metadata:
     expo-file-system: "npm:~18.1.11"
     expo-font: "npm:^13.3.2"
     expo-image-picker: "npm:~16.1.4"
+    expo-linear-gradient: "npm:~14.1.5"
     expo-media-library: "npm:~17.1.7"
     expo-notifications: "npm:~0.31.4"
     expo-status-bar: "npm:~2.2.3"
@@ -8224,7 +8169,10 @@ __metadata:
     react: "npm:19.0.0"
     react-native: "npm:0.79.5"
     react-native-gesture-handler: "npm:~2.24.0"
-    react-native-gifted-chat: "npm:^2.4.0"
+    react-native-gifted-chat: "npm:2.0.1"
+    react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
+    react-native-keyboard-controller: "npm:^1.18.5"
+    react-native-lightbox: "npm:^0.8.1"
     react-native-paper: "npm:^5.11.3"
     react-native-reanimated: "npm:~3.17.4"
     react-native-safe-area-context: "npm:^5.4.0"
@@ -8559,12 +8507,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"use-memo-one@npm:1.1.3":
-  version: 1.1.3
-  resolution: "use-memo-one@npm:1.1.3"
+"use-memo-one@npm:1.1.2":
+  version: 1.1.2
+  resolution: "use-memo-one@npm:1.1.2"
   peerDependencies:
-    react: ^16.8.0 || ^17.0.0 || ^18.0.0
-  checksum: 10c0/3d596e65a6b47b2f1818061599738e00daad1f9a9bb4e5ce1f014b20a35b297e50fe4bf1d8c1699ab43ea97f01f84649a736c15ceff96de83bfa696925f6cc6b
+    react: ^16.8.0 || ^17.0.0
+  checksum: 10c0/02709d197f4c2bff405f4a7c328d144e83b3d2e727fca8ab8164905ee7202d923663a06ec48d24b386a4984579d3fe54c1e1416303417b0ebe80136692dcd1a6
   languageName: node
   linkType: hard
 
