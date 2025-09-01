@@ -21,8 +21,14 @@ if (!firebase.apps.length) {
 export const auth = firebase.auth();
 export const db = firebase.firestore();
 
-// Configure auth state persistence - Firebase compat handles this automatically in React Native
-console.log('Firebase Auth will use default React Native persistence');
+// Enable Firebase Auth persistence explicitly
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .then(() => {
+    console.log('Firebase Auth persistence enabled explicitly');
+  })
+  .catch((error) => {
+    console.log('Firebase Auth will use default React Native persistence');
+  });
 
 // Ensure Firebase is initialized
 console.log('Firebase initialized successfully');

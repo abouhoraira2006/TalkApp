@@ -375,7 +375,7 @@ const SimpleChatListScreen = ({ navigation }: SimpleChatListScreenProps) => {
     } else {
       markAsRead(item.id);
       const otherUser = getOtherUser(item);
-      navigation.navigate('Chat', { 
+      navigation.navigate('InstagramChat', { 
         chatId: item.id, 
         otherUser: otherUser || { id: 'unknown', name: 'مستخدم غير معروف' }
       });
@@ -394,7 +394,7 @@ const SimpleChatListScreen = ({ navigation }: SimpleChatListScreenProps) => {
         setPasswordInput('');
         markAsRead(lockedChatToOpen.id);
         const otherUser = getOtherUser(lockedChatToOpen);
-        navigation.navigate('Chat', { 
+        navigation.navigate('InstagramChat', { 
           chatId: lockedChatToOpen.id, 
           otherUser: otherUser || { id: 'unknown', name: 'مستخدم غير معروف' }
         });

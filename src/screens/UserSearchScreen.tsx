@@ -61,43 +61,77 @@ const UserSearchScreen = ({ navigation }: any) => {
   };
 
   const startChat = async (otherUser: User) => {
-    if (!user) return;
+    if (!user) {
+      Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
+      return;
+    }
+
+    console.log('Starting chat with:', otherUser.name);
+    console.log('Current user:', user.name);
 
     try {
       // Check if chat already exists
-      const existingChat = await db
-        .collection('chats')
+      const chatQuery = await db.collection('chats')
         .where('participants', 'array-contains', user.id)
         .get();
 
-      let foundChatId = null;
-      existingChat.docs.forEach((doc) => {
-        const data = doc.data();
-        if (data.participants.includes(otherUser.id)) {
-          foundChatId = doc.id;
+      let existingChatId: string | null = null;
+      
+      chatQuery.forEach((doc) => {
+        const chatData = doc.data();
+        if (chatData.participants.includes(otherUser.id)) {
+          existingChatId = doc.id;
         }
       });
 
-      if (foundChatId) {
-        // Navigate to existing chat
-        navigation.navigate('Chat', {
-          chatId: foundChatId,
-          otherUser,
+      let chatId: string = existingChatId || '';
+
+      // If no existing chat, create a new one
+      if (!chatId) {
+        console.log('Creating new chat...');
+        const newChatRef = await db.collection('chats').add({
+          participants: [user.id, otherUser.id],
+          createdAt: Date.now(),
+          lastMessage: '',
+          lastMessageTime: Date.now(),
+          unreadCount: {
+            [user.id]: 0,
+            [otherUser.id]: 0,
+          },
         });
+        chatId = newChatRef.id;
+        console.log('New chat created with ID:', chatId);
       } else {
-        // Navigate to new chat (will be created in ChatScreen)
-        navigation.navigate('Chat', {
-          otherUser,
-        });
+        console.log('Using existing chat ID:', chatId);
       }
+      
+      // Navigate to chat screen
+      navigation.navigate('InstagramChat', {
+        chatId: chatId,
+        otherUser: {
+          id: otherUser.id,
+          name: otherUser.name,
+          photoUrl: otherUser.photoUrl,
+        },
+      });
+      
+      console.log('Navigation completed successfully');
+      
     } catch (error) {
       console.error('Error starting chat:', error);
-      Alert.alert('خطأ', 'فشل في بدء المحادثة');
+      Alert.alert('خطأ', 'فشل في فتح المحادثة');
     }
   };
 
   const renderUserItem = ({ item }: { item: User }) => (
-    <TouchableOpacity style={styles.userItem} onPress={() => startChat(item)}>
+    <TouchableOpacity 
+      style={styles.userItem} 
+      onPress={() => {
+        console.log('User item pressed:', item.name);
+        startChat(item);
+      }}
+      activeOpacity={0.7}
+    >
       <Image
         source={{ uri: item.photoUrl || 'https://via.placeholder.com/50' }}
         style={styles.avatar}
