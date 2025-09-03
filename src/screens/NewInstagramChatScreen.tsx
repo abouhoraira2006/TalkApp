@@ -116,8 +116,9 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const deleteIconOpacity = useSharedValue(0);
 
   // Instagram reactions (exact order and emojis)
-  // Custom reactions that can be modified by user
-  const getDisplayReactions = () => [...customReactions, '+'];
+  // Custom reactions that can be modified by user - removed '+' from main display
+  const getDisplayReactions = () => customReactions.slice(0, 6);
+  const getExtendedReactions = () => [...customReactions, '+'];
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -692,9 +693,12 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
           </Reanimated.View>
         </PanGestureHandler>
 
-        {/* Reactions */}
+        {/* Reactions - positioned below message bubble */}
         {item.reactions && Object.keys(item.reactions).length > 0 && (
-          <View style={styles.reactionsContainer}>
+          <View style={[
+            styles.reactionsContainer,
+            isCurrentUser ? styles.reactionsRight : styles.reactionsLeft
+          ]}>
             {Object.entries(item.reactions).map(([userId, reaction]) => (
               <View key={userId} style={styles.reactionBubble}>
                 <Text style={styles.reactionEmoji}>{reaction}</Text>
@@ -837,7 +841,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
           {!isInputFocused && (
             <>
               <TouchableOpacity 
-                style={styles.emojiButton}
+                style={styles.inputEmojiButton}
                 onPress={() => {
                   // Add emoji reaction to last message
                   const lastMessage = messages[messages.length - 1];
@@ -910,34 +914,32 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
             {getDisplayReactions().map((emoji, index) => (
               <TouchableOpacity
                 key={index}
-                style={[
-                  styles.reactionButton,
-                  emoji === '+' && styles.addReactionButton
-                ]}
+                style={styles.reactionButton}
                 onPress={() => {
-                  if (emoji === '+') {
-                    setShowQuickReactions(false);
-                    setShowEmojiPicker(true);
-                  } else if (quickReactionMessage) {
+                  if (quickReactionMessage) {
                     handleReaction(quickReactionMessage.id, emoji);
                     setShowQuickReactions(false);
                   }
                 }}
                 onLongPress={() => {
-                  if (emoji !== '+') {
-                    // Allow customization of reactions
-                    setShowEmojiPicker(true);
-                    setShowQuickReactions(false);
-                  }
+                  // Allow customization of reactions
+                  setShowEmojiPicker(true);
+                  setShowQuickReactions(false);
                 }}
               >
-                {emoji === '+' ? (
-                  <Ionicons name="add" size={20} color="#fff" />
-                ) : (
-                  <Text style={styles.reactionEmoji}>{emoji}</Text>
-                )}
+                <Text style={styles.reactionEmoji}>{emoji}</Text>
               </TouchableOpacity>
             ))}
+            {/* Add more button */}
+            <TouchableOpacity
+              style={[styles.reactionButton, styles.addReactionButton]}
+              onPress={() => {
+                setShowQuickReactions(false);
+                setShowEmojiPicker(true);
+              }}
+            >
+              <Ionicons name="add" size={16} color="#fff" />
+            </TouchableOpacity>
           </Reanimated.View>
         </Pressable>
       </Modal>
@@ -1227,25 +1229,37 @@ const styles = StyleSheet.create({
   replyIconRight: {
     right: 10,
   },
-  // Reactions styles
+  // Reactions styles - improved positioning and sizing
   reactionsContainer: {
     flexDirection: 'row',
-    marginTop: 2,
+    marginTop: 4,
     marginBottom: 2,
     flexWrap: 'wrap',
+    maxWidth: '70%',
+  },
+  reactionsRight: {
+    alignSelf: 'flex-end',
+    marginRight: 16,
+  },
+  reactionsLeft: {
+    alignSelf: 'flex-start',
+    marginLeft: 16,
   },
   reactionBubble: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 10,
-    paddingHorizontal: 4,
+    borderRadius: 8,
+    paddingHorizontal: 3,
     paddingVertical: 1,
-    marginRight: 3,
-    marginTop: 2,
+    marginRight: 2,
+    marginTop: 1,
     borderWidth: 0.5,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   reactionEmoji: {
-    fontSize: 26,
+    fontSize: 14,
   },
   emojiPickerContainer: {
     flex: 1,
@@ -1373,7 +1387,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
-  emojiButton: {
+  inputEmojiButton: {
     padding: 6,
     marginLeft: 4,
   },
@@ -1420,18 +1434,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   reactionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   addReactionButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderStyle: 'dashed',
   },
   // Delete icon styles

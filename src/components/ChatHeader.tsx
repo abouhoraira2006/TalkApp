@@ -59,7 +59,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Avatar 
               photoUrl={otherUserPhoto}
               name={otherUserName}
-              size={40}
+              size={32}
               showOnlineStatus={true}
               isOnline={isOnline}
             />
@@ -91,11 +91,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#1f2937',
-    paddingTop: 50,
-    paddingBottom: 12,
+    paddingTop: 45,
+    paddingBottom: 8,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#374151',
+    minHeight: 70,
   },
   leftSection: {
     flexDirection: 'row',
@@ -103,8 +104,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 6,
+    marginRight: 6,
   },
   userInfo: {
     flexDirection: 'row',
@@ -139,25 +140,25 @@ const styles = StyleSheet.create({
   },
   nameContainer: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   userName: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   lastSeen: {
     color: '#9ca3af',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionButton: {
-    padding: 8,
-    marginLeft: 8,
+    padding: 6,
+    marginLeft: 6,
   },
 });
 
