@@ -14,7 +14,12 @@ import {
   Keyboard,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera } from 'expo-camera';
+import { Audio } from 'expo-av';
+import CameraModal from '../components/CameraModal';
 import { Ionicons } from '@expo/vector-icons';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 import Reanimated, {
@@ -58,15 +63,17 @@ interface Message {
   senderId: string;
   timestamp: number;
   seen?: boolean;
-  type?: string;
-  image?: string;
-  audio?: string;
+  delivered?: boolean;
+  reactions?: { [userId: string]: string };
   replyTo?: {
     id: string;
     text: string;
     senderName: string;
   };
-  reactions?: { [userId: string]: string };
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video' | 'audio';
+  deleted?: boolean;
+  deletedForEveryone?: boolean;
 }
 
 const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, navigation }) => {
@@ -83,12 +90,17 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const [showQuickReactions, setShowQuickReactions] = useState(false);
   const [quickReactionMessage, setQuickReactionMessage] = useState<Message | null>(null);
   const [reactionModalPosition, setReactionModalPosition] = useState({ x: 0, y: 0 });
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<any>(null);
   const inputRef = useRef<TextInput>(null);
-  
+
   // Animation values
   const dot1Anim = useRef(new Animated.Value(0.4)).current;
   const dot2Anim = useRef(new Animated.Value(0.7)).current;
@@ -98,10 +110,11 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const replyOpacity = useSharedValue(0);
   const sendButtonScale = useSharedValue(0);
   const inputContainerTranslateY = useSharedValue(0);
-  
+  const deleteIconOpacity = useSharedValue(0);
+
   // Instagram reactions (exact order and emojis)
   const instagramReactions = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎'];
-  
+
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
   // Keyboard listeners
@@ -110,10 +123,10 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         setKeyboardHeight(e.endCoordinates.height);
-        inputContainerTranslateY.value = withSpring(-e.endCoordinates.height + 34);
+        inputContainerTranslateY.value = withSpring(-e.endCoordinates.height + 50);
       }
     );
-    
+
     const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
@@ -217,7 +230,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       sendButtonScale.value = withSpring(1.2, { duration: 100 }, () => {
         sendButtonScale.value = withSpring(1);
       });
-      
+
       // Stop typing indicator
       await updateTypingStatus(false);
 
@@ -226,6 +239,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
         senderId: user.id,
         timestamp: Date.now(),
         seen: false,
+        delivered: true,
       };
 
       if (replyTo) {
@@ -249,8 +263,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       // Scroll to bottom with animation
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-      
+      }, 200);
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
@@ -273,7 +286,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     if (!user) return;
 
     const isCurrentlyTyping = text.length > 0;
-    
+
     if (isCurrentlyTyping !== isTyping) {
       setIsTyping(isCurrentlyTyping);
       updateTypingStatus(isCurrentlyTyping);
@@ -292,13 +305,22 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       }, 2000);
     }
   };
-  
+
   const handleLongPress = (message: Message, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
     setQuickReactionMessage(message);
     setReactionModalPosition({ x: pageX, y: pageY - 60 });
     setShowQuickReactions(true);
   };
+
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 300);
+    }
+  }, [messages.length]);
 
   // Mark messages as seen when screen is focused
   useEffect(() => {
@@ -327,7 +349,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     replyOpacity.value = withSpring(1);
     inputRef.current?.focus();
   };
-  
+
   const cancelReply = () => {
     replyAnimValue.value = withSpring(0);
     replyTranslateY.value = withSpring(50);
@@ -343,36 +365,161 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       const messageDoc = await messageRef.get();
       const messageData = messageDoc.data();
 
-      if (messageData) {
-        const currentReactions = messageData.reactions || {};
-        
-        if (currentReactions[user.id] === reaction) {
-          // Remove reaction
-          delete currentReactions[user.id];
-        } else {
-          // Add or update reaction
-          currentReactions[user.id] = reaction;
-        }
+      const currentReactions = messageData?.reactions || {};
 
-        await messageRef.update({ reactions: currentReactions });
+      if (currentReactions[user.id] === reaction) {
+        // Remove reaction if same reaction is clicked
+        delete currentReactions[user.id];
+      } else {
+        // Add or update reaction
+        currentReactions[user.id] = reaction;
       }
+
+      await messageRef.update({
+        reactions: currentReactions,
+      });
     } catch (error) {
       console.error('Error updating reaction:', error);
     }
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = (message: Message) => {
+    setMessageToDelete(message);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteMessage = async (deleteForEveryone: boolean = false) => {
+    if (!messageToDelete || !user) return;
+
+    try {
+      const messageRef = db.collection('chats').doc(chatId).collection('messages').doc(messageToDelete.id);
+
+      if (deleteForEveryone) {
+        await messageRef.update({
+          deleted: true,
+          deletedForEveryone: true,
+          text: 'This message was deleted',
+        });
+      } else {
+        await messageRef.update({
+          deleted: true,
+          text: 'You deleted this message',
+        });
+      }
+
+      setShowDeleteConfirm(false);
+      setMessageToDelete(null);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      Alert.alert('Error', 'Failed to delete message');
+    }
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera roll permissions to share images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      sendMediaMessage(result.assets[0].uri, result.assets[0].type === 'video' ? 'video' : 'image');
+    }
+  };
+
+  const sendMediaMessage = async (mediaUri: string, mediaType: 'image' | 'video' | 'audio') => {
     if (!user) return;
 
     try {
-      await db.collection('chats').doc(chatId).collection('messages').doc(messageId).update({
-        isDeleted: true,
-        deletedAt: Date.now(),
-        deletedBy: user.id,
+      const messageData: any = {
+        text: '',
+        senderId: user.id,
+        timestamp: Date.now(),
+        seen: false,
+        delivered: true,
+        mediaUrl: mediaUri,
+        mediaType: mediaType,
+      };
+
+      await db.collection('chats').doc(chatId).collection('messages').add(messageData);
+
+      // Update chat last message
+      const lastMessageText = {
+        image: '📷 Photo',
+        video: '🎥 Video',
+        audio: '🎤 Voice message'
+      };
+      
+      await db.collection('chats').doc(chatId).update({
+        lastMessage: lastMessageText[mediaType],
+        lastMessageTime: Date.now(),
+        [`seen.${user.id}`]: Date.now(),
       });
+
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 200);
     } catch (error) {
-      console.error('Error deleting message:', error);
-      Alert.alert('خطأ', 'فشل في حذف الرسالة');
+      console.error('Error sending media:', error);
+      Alert.alert('Error', 'Failed to send media');
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
+      return;
+    }
+    setShowCamera(true);
+  };
+
+  const startRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant microphone permissions to record voice messages.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      Alert.alert('Error', 'Failed to start recording');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+
+    try {
+      setIsRecording(false);
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+      
+      if (uri) {
+        sendMediaMessage(uri, 'audio');
+      }
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      Alert.alert('Error', 'Failed to stop recording');
     }
   };
 
@@ -380,30 +527,49 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     const isCurrentUser = item.senderId === user?.id;
     const translateX = useSharedValue(0);
     const replyIconOpacity = useSharedValue(0);
-    
+    const deleteIconOpacity = useSharedValue(0);
+
     const gestureHandler = useAnimatedGestureHandler({
-      onStart: () => {
-        // Start gesture
-      },
+      onStart: () => {},
       onActive: (event) => {
-        const maxSwipe = isCurrentUser ? -80 : 80;
-        const direction = isCurrentUser ? -1 : 1;
-        
-        if ((isCurrentUser && event.translationX < 0) || (!isCurrentUser && event.translationX > 0)) {
-          translateX.value = Math.max(Math.min(event.translationX, Math.abs(maxSwipe)), maxSwipe);
-          replyIconOpacity.value = Math.min(Math.abs(translateX.value) / 60, 1);
+        if (isCurrentUser) {
+          // Swipe left to reply, swipe right to delete
+          if (event.translationX < 0) {
+            // Reply gesture (swipe left)
+            translateX.value = Math.max(event.translationX, -80);
+            replyIconOpacity.value = Math.min(Math.abs(translateX.value) / 60, 1);
+            deleteIconOpacity.value = 0;
+          } else if (event.translationX > 0) {
+            // Delete gesture (swipe right)
+            translateX.value = Math.min(event.translationX, 80);
+            deleteIconOpacity.value = Math.min(translateX.value / 60, 1);
+            replyIconOpacity.value = 0;
+          }
+        } else {
+          // For other user messages, only allow reply (swipe right)
+          if (event.translationX > 0) {
+            translateX.value = Math.min(event.translationX, 80);
+            replyIconOpacity.value = Math.min(translateX.value / 60, 1);
+          }
         }
       },
-      onEnd: (event) => {
+      onEnd: () => {
         const threshold = 60;
         if (Math.abs(translateX.value) > threshold) {
-          runOnJS(handleReply)(item);
+          if (isCurrentUser && translateX.value > 0) {
+            // Delete action
+            runOnJS(handleDeleteMessage)(item);
+          } else {
+            // Reply action
+            runOnJS(handleReply)(item);
+          }
         }
         translateX.value = withSpring(0);
         replyIconOpacity.value = withSpring(0);
+        deleteIconOpacity.value = withSpring(0);
       },
     });
-    
+
     const animatedStyle = useAnimatedStyle(() => {
       return {
         transform: [{ translateX: translateX.value }],
@@ -416,23 +582,28 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       };
     });
     
+    const deleteIconStyle = useAnimatedStyle(() => {
+      return {
+        opacity: deleteIconOpacity.value,
+      };
+    });
+    
     return (
       <View style={styles.messageContainer}>
-        {/* Reply icon */}
-        <Reanimated.View style={[
-          styles.replyIcon,
-          isCurrentUser ? styles.replyIconRight : styles.replyIconLeft,
-          replyIconStyle
-        ]}>
+        <Reanimated.View style={[styles.replyIcon, isCurrentUser ? styles.replyIconRight : styles.replyIconLeft, replyIconStyle]}>
           <Ionicons name="arrow-undo" size={20} color="rgba(255, 255, 255, 0.6)" />
         </Reanimated.View>
+        {isCurrentUser && (
+          <Reanimated.View style={[styles.deleteIcon, styles.deleteIconLeft, deleteIconStyle]}>
+            <Ionicons name="trash" size={20} color="#ff3040" />
+          </Reanimated.View>
+        )}
         
         <PanGestureHandler onGestureEvent={gestureHandler}>
-          <Reanimated.View style={animatedStyle}>
-            <View style={[
-              styles.messageBubble,
-              isCurrentUser ? styles.myMessageBubble : styles.otherMessageBubble
-            ]}>
+          <Reanimated.View style={[animatedStyle, {
+            ...styles.messageBubble,
+            ...(isCurrentUser ? styles.myMessageBubble : styles.otherMessageBubble)
+          }]}>
               {/* Reply preview */}
               {item.replyTo && (
                 <View style={styles.replyPreviewContainer}>
@@ -455,53 +626,87 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
               {/* Message content */}
               <TouchableOpacity
                 onLongPress={(event) => handleLongPress(item, event)}
-                onPress={() => {
-                  // Double tap for quick heart reaction
-                }}
                 activeOpacity={0.8}
               >
-                <Text style={[
-                  styles.messageText,
-                  isCurrentUser ? styles.myMessageText : styles.otherMessageText
-                ]}>
-                  {item.text}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Reactions */}
-              {item.reactions && Object.keys(item.reactions).length > 0 && (
-                <View style={styles.reactionsContainer}>
-                  {Object.entries(item.reactions).map(([userId, reaction]) => (
-                    <View key={userId} style={styles.reactionBubble}>
-                      <Text style={styles.reactionEmoji}>{reaction}</Text>
+                {item.mediaUrl ? (
+                <View>
+                  {item.mediaType === 'image' && (
+                    <Image source={{ uri: item.mediaUrl }} style={styles.mediaMessage} />
+                  )}
+                  {item.mediaType === 'video' && (
+                    <View style={styles.videoContainer}>
+                      <Image source={{ uri: item.mediaUrl }} style={styles.mediaMessage} />
+                      <View style={styles.playButton}>
+                        <Ionicons name="play" size={30} color="#fff" />
+                      </View>
                     </View>
-                  ))}
+                  )}
+                  {item.mediaType === 'audio' && (
+                    <View style={styles.audioMessage}>
+                      <Ionicons name="play" size={20} color={isCurrentUser ? "#fff" : "#0084ff"} />
+                      <View style={styles.audioWaveform}>
+                        <View style={styles.waveBar} />
+                        <View style={styles.waveBar} />
+                        <View style={styles.waveBar} />
+                        <View style={styles.waveBar} />
+                        <View style={styles.waveBar} />
+                      </View>
+                      <Text style={[styles.audioDuration, { color: isCurrentUser ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }]}>0:15</Text>
+                    </View>
+                  )}
+                  {item.text ? <Text style={[styles.messageText, isCurrentUser ? styles.myMessageText : styles.otherMessageText]}>{item.text}</Text> : null}
                 </View>
-              )}
-
-              {/* Message info */}
-              <View style={styles.messageInfo}>
+              ) : (
                 <Text style={[
-                  styles.messageTime,
-                  isCurrentUser ? styles.myMessageTime : styles.otherMessageTime
+                  styles.messageText, 
+                  isCurrentUser ? styles.myMessageText : styles.otherMessageText,
+                  item.deleted && styles.deletedMessageText
                 ]}>
-                  {new Date(item.timestamp).toLocaleTimeString('ar-SA', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  {item.deleted ? (item.deletedForEveryone ? 'تم حذف هذه الرسالة' : 'قمت بحذف هذه الرسالة') : item.text}
                 </Text>
-                {isCurrentUser && (
-                  <Ionicons 
-                    name="checkmark-done" 
-                    size={14} 
-                    color={item.seen ? "#0084ff" : "rgba(255, 255, 255, 0.6)"} 
-                    style={styles.seenIcon} 
-                  />
-                )}
-              </View>
-            </View>
+              )}
+            </TouchableOpacity>
           </Reanimated.View>
         </PanGestureHandler>
+
+        {/* Reactions */}
+        {item.reactions && Object.keys(item.reactions).length > 0 && (
+          <View style={styles.reactionsContainer}>
+            {Object.entries(item.reactions).map(([userId, reaction]) => (
+              <View key={userId} style={styles.reactionBubble}>
+                <Text style={styles.reactionEmoji}>{reaction}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Message info */}
+        <View style={styles.messageInfo}>
+          <Text style={[styles.messageTime, isCurrentUser ? styles.myMessageTime : styles.otherMessageTime]}>
+            {new Date(item.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          {isCurrentUser && (
+            <View style={styles.statusIcons}>
+              {item.delivered && !item.seen && (
+                <Ionicons
+                  name="checkmark"
+                  size={12}
+                  color="rgba(255, 255, 255, 0.6)"
+                  style={styles.deliveredIcon}
+                />
+              )}
+              <Ionicons
+                name="checkmark-done"
+                size={14}
+                color={item.seen ? "#0084ff" : "rgba(255, 255, 255, 0.6)"}
+                style={styles.seenIcon}
+              />
+              {item.seen && (
+                <Text style={styles.seenText}>تمت المشاهدة</Text>
+              )}
+            </View>
+          )}
+        </View>
       </View>
     );
   };
@@ -517,11 +722,12 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     >
       <ChatHeader
         otherUserName={otherUser.name}
+        otherUserPhoto={otherUser.photoUrl}
         isOnline={true}
         onBack={() => navigation.goBack()}
-        onVideoCall={() => Alert.alert('قريباً', 'مكالمة الفيديو ستكون متاحة قريباً')}
-        onVoiceCall={() => Alert.alert('قريباً', 'المكالمة الصوتية ستكون متاحة قريباً')}
-        onInfo={() => Alert.alert('معلومات', `محادثة مع ${otherUser.name}`)}
+        onVideoCall={() => console.log('Video call')}
+        onVoiceCall={() => console.log('Voice call')}
+        onInfo={() => console.log('User info')}
       />
 
       <FlatList
@@ -530,8 +736,11 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         style={styles.messagesList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.messagesContentContainer}
+        showsVerticalScrollIndicator={true}
+        scrollEnabled={true}
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
       />
 
       {/* Typing Indicator */}
@@ -581,7 +790,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       {/* Instagram-style Input with keyboard animation */}
       <View style={styles.instagramInputContainer}>
         <View style={styles.inputWrapper}>
-          <TouchableOpacity style={styles.cameraButton}>
+          <TouchableOpacity style={styles.cameraButton} onPress={takePhoto}>
             <Ionicons name="camera" size={24} color="#fff" />
           </TouchableOpacity>
           
@@ -604,15 +813,32 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
           {/* Hide these buttons when input is focused */}
           {!isInputFocused && (
             <>
-              <TouchableOpacity style={styles.emojiButton}>
+              <TouchableOpacity 
+                style={styles.emojiButton}
+                onPress={() => {
+                  // Add emoji reaction to last message
+                  const lastMessage = messages[messages.length - 1];
+                  if (lastMessage && lastMessage.senderId !== user?.id) {
+                    handleReaction(lastMessage.id, '❤️');
+                  }
+                }}
+              >
                 <Ionicons name="happy-outline" size={24} color="#fff" />
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.micButton}>
-                <Ionicons name="mic" size={24} color="#fff" />
+              <TouchableOpacity 
+                style={[styles.micButton, isRecording && styles.recordingButton]}
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
+              >
+                <Ionicons 
+                  name={isRecording ? "stop" : "mic"} 
+                  size={24} 
+                  color={isRecording ? "#ff3040" : "#fff"} 
+                />
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.imageButton}>
+              <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
                 <Ionicons name="image" size={24} color="#fff" />
               </TouchableOpacity>
             </>
@@ -676,6 +902,56 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
           </View>
         </Pressable>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <Text style={styles.deleteModalTitle}>Delete Message</Text>
+            <Text style={styles.deleteModalText}>Are you sure you want to delete this message?</Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelButton]}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.deleteButton]}
+                onPress={() => confirmDeleteMessage(false)}
+              >
+                <Text style={styles.deleteButtonText}>Delete for Me</Text>
+              </TouchableOpacity>
+              
+              {messageToDelete?.senderId === user?.id && (
+                <TouchableOpacity
+                  style={[styles.deleteModalButton, styles.deleteForEveryoneButton]}
+                  onPress={() => confirmDeleteMessage(true)}
+                >
+                  <Text style={styles.deleteForEveryoneButtonText}>Delete for Everyone</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Camera Modal */}
+      <CameraModal
+        visible={showCamera}
+        onClose={() => setShowCamera(false)}
+        onPhotoTaken={(uri) => {
+          const isVideo = uri.includes('.mov') || uri.includes('.mp4');
+          sendMediaMessage(uri, isVideo ? 'video' : 'image');
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -687,7 +963,10 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     flex: 1,
+  },
+  messagesContentContainer: {
     paddingVertical: 8,
+    paddingBottom: 20,
   },
   messageContainer: {
     paddingHorizontal: 16,
@@ -873,7 +1152,8 @@ const styles = StyleSheet.create({
   instagramInputContainer: {
     backgroundColor: '#000',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderTopWidth: 1,
@@ -956,6 +1236,148 @@ const styles = StyleSheet.create({
   },
   instagramReactionEmoji: {
     fontSize: 20,
+  },
+  // Delete icon styles
+  deleteIcon: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -10,
+    zIndex: 1,
+  },
+  deleteIconLeft: {
+    left: 10,
+  },
+  // Media message styles
+  mediaMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  // Status icons
+  statusIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deliveredIcon: {
+    marginRight: 2,
+  },
+  // Delete modal styles
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteModalContainer: {
+    backgroundColor: '#262626',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    minWidth: 280,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  deleteModalText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  deleteModalButtons: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  deleteModalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  deleteButton: {
+    backgroundColor: '#ff3040',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  deleteForEveryoneButton: {
+    backgroundColor: '#ff6b6b',
+  },
+  deleteForEveryoneButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  // Video message styles
+  videoContainer: {
+    position: 'relative',
+  },
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -15,
+    marginLeft: -15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Audio message styles
+  audioMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 150,
+  },
+  audioWaveform: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  waveBar: {
+    width: 2,
+    height: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 1,
+    borderRadius: 1,
+  },
+  audioDuration: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  recordingButton: {
+    backgroundColor: 'rgba(255, 48, 64, 0.2)',
+  },
+  deletedMessageText: {
+    fontStyle: 'italic',
+    opacity: 0.7,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  seenText: {
+    fontSize: 10,
+    color: '#0084ff',
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 

@@ -7,9 +7,11 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Avatar from './Avatar';
 
 interface ChatHeaderProps {
   otherUserName: string;
+  otherUserPhoto?: string;
   isOnline?: boolean;
   lastSeen?: number;
   onBack: () => void;
@@ -20,6 +22,7 @@ interface ChatHeaderProps {
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   otherUserName,
+  otherUserPhoto,
   isOnline,
   lastSeen,
   onBack,
@@ -53,12 +56,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </TouchableOpacity>
           
           <TouchableOpacity onPress={onInfo} style={styles.userInfo}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {otherUserName.charAt(0).toUpperCase()}
-              </Text>
-              {isOnline && <View style={styles.onlineIndicator} />}
-            </View>
+            <Avatar 
+              photoUrl={otherUserPhoto}
+              name={otherUserName}
+              size={40}
+              showOnlineStatus={true}
+              isOnline={isOnline}
+            />
             
             <View style={styles.nameContainer}>
               <Text style={styles.userName}>{otherUserName}</Text>
@@ -135,6 +139,7 @@ const styles = StyleSheet.create({
   },
   nameContainer: {
     flex: 1,
+    marginLeft: 12,
   },
   userName: {
     color: '#ffffff',
