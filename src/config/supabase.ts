@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = "https://ggatxamblcoexalkjkvny.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnYXR4YW1ibGNvZXhhbGtqa3ZueSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzM1NTU1NjM1LCJleHAiOjIwNTExMzE2MzV9.VZnHLRKJLlFWBCdOKZGKJhLHOhUGLnHJKJLlFWBCdOKZ";
+const SUPABASE_URL = "https://rizoiyxeobfgkrsyfpro.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpem9peXhlb2JmZ2tyc3lmcHJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5MDA5NTUsImV4cCI6MjA3MjQ3Njk1NX0.MqYBg7R5cuLGU8z-zQxFYXcGtYKnY_duBMbVj4i0Jog";
 
 // Check if we're in development mode
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';

@@ -38,6 +38,7 @@ import { RouteProp } from '@react-navigation/native';
 import { db } from '../config/firebase';
 import { useSimpleAuth } from '../services/simpleAuth';
 import ChatHeader from '../components/ChatHeader';
+import { uploadMedia } from '../services/supabase';
 
 type RootStackParamList = {
   InstagramChat: {
@@ -73,6 +74,7 @@ interface Message {
   };
   mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'audio';
+  audioDuration?: string;
   deleted?: boolean;
   deletedForEveryone?: boolean;
 }
@@ -100,6 +102,12 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioSound, setAudioSound] = useState<Audio.Sound | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordingTimer, setRecordingTimer] = useState<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<any>(null);
   const inputRef = useRef<TextInput>(null);
@@ -122,13 +130,14 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-  // Keyboard listeners
+  // Keyboard listeners - improved for smoother animation
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
         setKeyboardHeight(e.endCoordinates.height);
-        inputContainerTranslateY.value = withSpring(-e.endCoordinates.height + 50);
+        // Remove the translateY animation that causes glitches
+        // inputContainerTranslateY.value = withSpring(-e.endCoordinates.height + 50);
       }
     );
 
@@ -136,7 +145,8 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardHeight(0);
-        inputContainerTranslateY.value = withSpring(0);
+        // Remove the translateY animation that causes glitches
+        // inputContainerTranslateY.value = withSpring(0);
       }
     );
 
@@ -439,9 +449,14 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   };
 
   const pickImage = async () => {
+    if (uploadingMedia) {
+      Alert.alert('انتظر', 'جاري رفع ملف آخر، يرجى الانتظار');
+      return;
+    }
+
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions to share images.');
+      Alert.alert('إذن مطلوب', 'يرجى منح إذن الوصول للصور لمشاركة الصور.');
       return;
     }
 
@@ -450,10 +465,20 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      allowsMultipleSelection: false,
     });
 
     if (!result.canceled && result.assets[0]) {
-      sendMediaMessage(result.assets[0].uri, result.assets[0].type === 'video' ? 'video' : 'image');
+      const asset = result.assets[0];
+      const mediaType = asset.type === 'video' ? 'video' : 'image';
+      
+      // Check file size (50MB limit)
+      if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024) {
+        Alert.alert('ملف كبير جداً', 'حجم الملف يجب أن يكون أقل من 50 ميجابايت');
+        return;
+      }
+      
+      sendMediaMessage(asset.uri, mediaType);
     }
   };
 
@@ -461,23 +486,37 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     if (!user) return;
 
     try {
+      setUploadingMedia(true);
+      setUploadProgress(0);
+
+      // Upload to Supabase first
+      const { url: supabaseUrl, error: uploadError } = await uploadMedia(mediaUri, mediaType);
+      
+      if (uploadError || !supabaseUrl) {
+        Alert.alert('خطأ في الرفع', uploadError || 'فشل في رفع الملف');
+        return;
+      }
+
+      setUploadProgress(100);
+
       const messageData: any = {
         text: '',
         senderId: user.id,
         timestamp: Date.now(),
         seen: false,
         delivered: true,
-        mediaUrl: mediaUri,
+        mediaUrl: supabaseUrl, // Use Supabase URL
         mediaType: mediaType,
+        ...(mediaType === 'audio' && { audioDuration: formatDuration(recordingDuration) }),
       };
 
       await db.collection('chats').doc(chatId).collection('messages').add(messageData);
 
       // Update chat last message
       const lastMessageText = {
-        image: '📷 Photo',
-        video: '🎥 Video',
-        audio: '🎤 Voice message'
+        image: '📷 صورة',
+        video: '🎥 فيديو',
+        audio: '🎤 رسالة صوتية'
       };
       
       await db.collection('chats').doc(chatId).update({
@@ -491,58 +530,171 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
       }, 200);
     } catch (error) {
       console.error('Error sending media:', error);
-      Alert.alert('Error', 'Failed to send media');
+      Alert.alert('خطأ', 'فشل في إرسال الوسائط');
+    } finally {
+      setUploadingMedia(false);
+      setUploadProgress(0);
     }
   };
 
   const takePhoto = async () => {
+    if (uploadingMedia) {
+      Alert.alert('انتظر', 'جاري رفع ملف آخر، يرجى الانتظار');
+      return;
+    }
+
     const { status } = await Camera.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
+      Alert.alert('إذن مطلوب', 'يرجى منح إذن الكاميرا لالتقاط الصور.');
       return;
     }
     setShowCamera(true);
   };
 
   const startRecording = async () => {
+    if (uploadingMedia) {
+      Alert.alert('انتظر', 'جاري رفع ملف آخر، يرجى الانتظار');
+      return;
+    }
+
+    if (isRecording || recording) {
+      console.log('Recording already in progress');
+      return;
+    }
+
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant microphone permissions to record voice messages.');
+        Alert.alert('إذن مطلوب', 'يرجى منح إذن الميكروفون لتسجيل الرسائل الصوتية.');
         return;
       }
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
-      const { recording } = await Audio.Recording.createAsync(
+      const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      setRecording(recording);
+      
+      setRecording(newRecording);
       setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // Start recording timer
+      const timer = setInterval(() => {
+        setRecordingDuration(prev => {
+          if (prev >= 50) {
+            stopRecording();
+            return 50;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      
+      setRecordingTimer(timer);
+      console.log('Recording started successfully');
     } catch (error) {
       console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording');
+      setRecording(null);
+      setIsRecording(false);
+      Alert.alert('خطأ', 'فشل في بدء التسجيل');
     }
   };
 
+  // Audio playback functions
+  const playAudio = async (audioUrl: string, messageId: string) => {
+    try {
+      // Stop current audio if playing
+      if (audioSound) {
+        await audioSound.unloadAsync();
+        setAudioSound(null);
+        setPlayingAudio(null);
+      }
+
+      if (playingAudio === messageId) {
+        return; // Already stopped
+      }
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true }
+      );
+      
+      setAudioSound(sound);
+      setPlayingAudio(messageId);
+      
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setPlayingAudio(null);
+          setAudioSound(null);
+        }
+      });
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      Alert.alert('خطأ', 'فشل في تشغيل المقطع الصوتي');
+    }
+  };
+
+  const stopAudio = async () => {
+    if (audioSound) {
+      await audioSound.unloadAsync();
+      setAudioSound(null);
+      setPlayingAudio(null);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!recording || !isRecording) {
+      console.log('No active recording to stop');
+      return;
+    }
 
     try {
       setIsRecording(false);
-      await recording.stopAndUnloadAsync();
+      
       const uri = recording.getURI();
+      await recording.stopAndUnloadAsync();
+      
+      // Clear recording timer
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        setRecordingTimer(null);
+      }
+      
+      // Reset audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+      
       setRecording(null);
+      setRecordingDuration(0);
+      console.log('Recording stopped successfully, URI:', uri);
       
       if (uri) {
         sendMediaMessage(uri, 'audio');
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      Alert.alert('Error', 'Failed to stop recording');
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        setRecordingTimer(null);
+      }
+      setRecording(null);
+      setIsRecording(false);
+      setRecordingDuration(0);
+      Alert.alert('خطأ', 'فشل في إيقاف التسجيل');
     }
   };
 
@@ -666,17 +818,32 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
                     </View>
                   )}
                   {item.mediaType === 'audio' && (
-                    <View style={styles.audioMessage}>
-                      <Ionicons name="play" size={20} color={isCurrentUser ? "#fff" : "#0084ff"} />
+                    <TouchableOpacity 
+                      style={styles.audioMessage}
+                      onPress={() => {
+                        if (playingAudio === item.id) {
+                          stopAudio();
+                        } else {
+                          playAudio(item.mediaUrl!, item.id);
+                        }
+                      }}
+                    >
+                      <Ionicons 
+                        name={playingAudio === item.id ? "pause" : "play"} 
+                        size={20} 
+                        color={isCurrentUser ? "#fff" : "#0084ff"} 
+                      />
                       <View style={styles.audioWaveform}>
-                        <View style={styles.waveBar} />
-                        <View style={styles.waveBar} />
-                        <View style={styles.waveBar} />
-                        <View style={styles.waveBar} />
-                        <View style={styles.waveBar} />
+                        <View style={[styles.waveBar, playingAudio === item.id && styles.activeWaveBar]} />
+                        <View style={[styles.waveBar, playingAudio === item.id && styles.activeWaveBar]} />
+                        <View style={[styles.waveBar, playingAudio === item.id && styles.activeWaveBar]} />
+                        <View style={[styles.waveBar, playingAudio === item.id && styles.activeWaveBar]} />
+                        <View style={[styles.waveBar, playingAudio === item.id && styles.activeWaveBar]} />
                       </View>
-                      <Text style={[styles.audioDuration, { color: isCurrentUser ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }]}>0:15</Text>
-                    </View>
+                      <Text style={[styles.audioDuration, { color: isCurrentUser ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' }]}>
+                        {item.audioDuration || '0:00'}
+                      </Text>
+                    </TouchableOpacity>
                   )}
                   {item.text ? <Text style={[styles.messageText, isCurrentUser ? styles.myMessageText : styles.otherMessageText]}>{item.text}</Text> : null}
                 </View>
@@ -746,6 +913,8 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
     <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      enabled={true}
     >
       <ChatHeader
         otherUserName={otherUser.name}
@@ -814,7 +983,19 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
         </Reanimated.View>
       )}
 
-      {/* Instagram-style Input with keyboard animation */}
+      {/* Upload Progress Indicator */}
+      {uploadingMedia && (
+        <View style={styles.uploadProgressContainer}>
+          <View style={styles.uploadProgressBar}>
+            <View style={[styles.uploadProgressFill, { width: `${uploadProgress}%` }]} />
+          </View>
+          <Text style={styles.uploadProgressText}>
+            {uploadProgress < 100 ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...'}
+          </Text>
+        </View>
+      )}
+
+      {/* Instagram-style Input - removed problematic animation */}
       <View style={styles.instagramInputContainer}>
         <View style={styles.inputWrapper}>
           <TouchableOpacity style={styles.cameraButton} onPress={takePhoto}>
@@ -861,8 +1042,13 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
                 <Ionicons 
                   name={isRecording ? "stop" : "mic"} 
                   size={24} 
-                  color={isRecording ? "#ff3040" : "#fff"} 
+                  color={isRecording ? "#ff4444" : "#fff"} 
                 />
+                {isRecording && (
+                  <Text style={styles.recordingDuration}>
+                    {formatDuration(recordingDuration)}
+                  </Text>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
@@ -1104,6 +1290,7 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     flex: 1,
+    backgroundColor: '#000',
   },
   messagesContentContainer: {
     paddingVertical: 8,
@@ -1353,16 +1540,17 @@ const styles = StyleSheet.create({
   replyPreviewClose: {
     padding: 8,
   },
-  // Instagram-style input
+  // Instagram-style input - fixed positioning
   instagramInputContainer: {
     backgroundColor: '#000',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 16,
+    paddingBottom: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderTopWidth: 1,
     borderTopColor: '#333',
+    position: 'relative',
   },
   inputWrapper: {
     flex: 1,
@@ -1589,6 +1777,42 @@ const styles = StyleSheet.create({
     color: '#0084ff',
     marginLeft: 4,
     fontWeight: '500',
+  },
+  // Upload progress styles
+  uploadProgressContainer: {
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  uploadProgressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  uploadProgressFill: {
+    height: '100%',
+    backgroundColor: '#0084ff',
+    borderRadius: 2,
+  },
+  uploadProgressText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  activeWaveBar: {
+    backgroundColor: '#0084ff',
+    opacity: 0.8,
+  },
+  recordingDuration: {
+    position: 'absolute',
+    top: -25,
+    fontSize: 12,
+    color: '#ff4444',
+    fontWeight: 'bold',
   },
 });
 
