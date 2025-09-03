@@ -15,6 +15,7 @@ import {
   Modal,
   Pressable,
   Image,
+  ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
@@ -88,8 +89,10 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
   const [showQuickReactions, setShowQuickReactions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [quickReactionMessage, setQuickReactionMessage] = useState<Message | null>(null);
   const [reactionModalPosition, setReactionModalPosition] = useState({ x: 0, y: 0 });
+  const [customReactions, setCustomReactions] = useState(['❤️', '😂', '😮', '😢', '😡', '👍']);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
@@ -113,7 +116,8 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
   const deleteIconOpacity = useSharedValue(0);
 
   // Instagram reactions (exact order and emojis)
-  const instagramReactions = ['❤️', '😂', '😮', '😢', '😡', '👍', '👎'];
+  // Custom reactions that can be modified by user
+  const getDisplayReactions = () => [...customReactions, '+'];
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -308,9 +312,27 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
 
   const handleLongPress = (message: Message, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
+    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+    
+    // Calculate better position for reaction modal
+    let modalX = pageX - 150; // Center the modal
+    let modalY = pageY - 80;
+    
+    // Keep modal within screen bounds
+    if (modalX < 10) modalX = 10;
+    if (modalX > screenWidth - 320) modalX = screenWidth - 320;
+    if (modalY < 50) modalY = pageY + 20;
+    if (modalY > screenHeight - 100) modalY = pageY - 100;
+    
     setQuickReactionMessage(message);
-    setReactionModalPosition({ x: pageX, y: pageY - 60 });
+    setReactionModalPosition({ x: modalX, y: modalY });
     setShowQuickReactions(true);
+    
+    // Add haptic feedback
+    if (Platform.OS === 'ios') {
+      const { HapticFeedback } = require('expo-haptics');
+      HapticFeedback.impactAsync(HapticFeedback.ImpactFeedbackStyle.Medium);
+    }
   };
 
   // Auto scroll to bottom when new messages arrive
@@ -626,7 +648,8 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
               {/* Message content */}
               <TouchableOpacity
                 onLongPress={(event) => handleLongPress(item, event)}
-                activeOpacity={0.8}
+                delayLongPress={500}
+                activeOpacity={0.9}
               >
                 {item.mediaUrl ? (
                 <View>
@@ -863,7 +886,7 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
         ) : null}
       </View>
 
-      {/* Instagram-style Reactions Modal */}
+      {/* Enhanced Reactions Modal */}
       <Modal
         visible={showQuickReactions}
         transparent
@@ -874,33 +897,149 @@ const NewInstagramChatScreen: React.FC<InstagramChatScreenProps> = ({ route, nav
           style={styles.reactionModalOverlay}
           onPress={() => setShowQuickReactions(false)}
         >
-          <View
+          <Reanimated.View
             style={[
-              styles.instagramReactionContainer,
+              styles.quickReactionsContainer,
               {
                 position: 'absolute',
-                left: Math.max(10, Math.min(reactionModalPosition.x - 140, screenWidth - 290)),
-                top: Math.max(100, reactionModalPosition.y - 70),
-              }
+                left: reactionModalPosition.x,
+                top: reactionModalPosition.y,
+              },
             ]}
           >
-            {instagramReactions.map((reaction, index) => (
+            {getDisplayReactions().map((emoji, index) => (
               <TouchableOpacity
-                key={reaction}
-                style={styles.instagramReactionButton}
+                key={index}
+                style={[
+                  styles.reactionButton,
+                  emoji === '+' && styles.addReactionButton
+                ]}
                 onPress={() => {
-                  if (quickReactionMessage) {
-                    handleReaction(quickReactionMessage.id, reaction);
+                  if (emoji === '+') {
+                    setShowQuickReactions(false);
+                    setShowEmojiPicker(true);
+                  } else if (quickReactionMessage) {
+                    handleReaction(quickReactionMessage.id, emoji);
+                    setShowQuickReactions(false);
                   }
-                  setShowQuickReactions(false);
-                  setQuickReactionMessage(null);
+                }}
+                onLongPress={() => {
+                  if (emoji !== '+') {
+                    // Allow customization of reactions
+                    setShowEmojiPicker(true);
+                    setShowQuickReactions(false);
+                  }
                 }}
               >
-                <Text style={styles.instagramReactionEmoji}>{reaction}</Text>
+                {emoji === '+' ? (
+                  <Ionicons name="add" size={20} color="#fff" />
+                ) : (
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                )}
               </TouchableOpacity>
             ))}
-          </View>
+          </Reanimated.View>
         </Pressable>
+      </Modal>
+
+      {/* Custom Emoji Picker Modal */}
+      <Modal
+        visible={showEmojiPicker}
+        animationType="slide"
+        onRequestClose={() => setShowEmojiPicker(false)}
+      >
+        <View style={styles.emojiPickerContainer}>
+          <View style={styles.emojiPickerHeader}>
+            <Text style={styles.emojiPickerTitle}>اختر إيموجي</Text>
+            <TouchableOpacity
+              style={styles.emojiPickerClose}
+              onPress={() => setShowEmojiPicker(false)}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.emojiGrid}>
+            <View style={styles.emojiSection}>
+              <Text style={styles.emojiSectionTitle}>😀 وجوه مبتسمة</Text>
+              <View style={styles.emojiRow}>
+                {['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳'].map((emoji, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.emojiButton}
+                    onPress={() => {
+                      if (quickReactionMessage) {
+                        handleReaction(quickReactionMessage.id, emoji);
+                      }
+                      setShowEmojiPicker(false);
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.emojiSection}>
+              <Text style={styles.emojiSectionTitle}>❤️ قلوب ومشاعر</Text>
+              <View style={styles.emojiRow}>
+                {['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '♥️', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💬', '👁️‍🗨️', '🗨️', '🗯️'].map((emoji, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.emojiButton}
+                    onPress={() => {
+                      if (quickReactionMessage) {
+                        handleReaction(quickReactionMessage.id, emoji);
+                      }
+                      setShowEmojiPicker(false);
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.emojiSection}>
+              <Text style={styles.emojiSectionTitle}>👍 إيماءات</Text>
+              <View style={styles.emojiRow}>
+                {['👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👋', '🤚', '🖐️', '✋', '🖖', '👏', '🙌', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂'].map((emoji, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.emojiButton}
+                    onPress={() => {
+                      if (quickReactionMessage) {
+                        handleReaction(quickReactionMessage.id, emoji);
+                      }
+                      setShowEmojiPicker(false);
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.emojiSection}>
+              <Text style={styles.emojiSectionTitle}>🎉 احتفالات</Text>
+              <View style={styles.emojiRow}>
+                {['🎉', '🎊', '🎈', '🎂', '🍰', '🧁', '🎀', '🎁', '🎗️', '🏆', '🏅', '🥇', '🥈', '🥉', '⭐', '🌟', '💫', '✨', '🎯', '🎪', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎵', '🎶', '🎸', '🥁', '🎺'].map((emoji, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.emojiButton}
+                    onPress={() => {
+                      if (quickReactionMessage) {
+                        handleReaction(quickReactionMessage.id, emoji);
+                      }
+                      setShowEmojiPicker(false);
+                    }}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
       </Modal>
 
       {/* Delete Confirmation Modal */}
@@ -1106,7 +1245,59 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   reactionEmoji: {
-    fontSize: 12,
+    fontSize: 26,
+  },
+  emojiPickerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  emojiPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  emojiPickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  emojiPickerClose: {
+    padding: 8,
+  },
+  emojiGrid: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  emojiSection: {
+    marginBottom: 20,
+  },
+  emojiSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+    paddingHorizontal: 5,
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  emojiButton: {
+    width: '11%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  emojiText: {
+    fontSize: 24,
   },
   // Reply preview styles
   replyPreview: {
@@ -1211,31 +1402,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  instagramReactionContainer: {
-    backgroundColor: '#262626',
-    borderRadius: 30,
+  quickReactionsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    elevation: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 30,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    borderWidth: 0.5,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  instagramReactionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  reactionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 2,
-    backgroundColor: 'transparent',
+    marginHorizontal: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  instagramReactionEmoji: {
-    fontSize: 20,
+  addReactionButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderStyle: 'dashed',
   },
   // Delete icon styles
   deleteIcon: {
